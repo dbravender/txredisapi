@@ -242,6 +242,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         self.pipelining = False
         self.pipelined_commands = []
         self.pipelined_replies = []
+        self.recent_commands = collections.deque(maxlen=3)
 
     @defer.inlineCallbacks
     def connectionMade(self):
@@ -489,6 +490,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
                     cmd = str(s)
                 cmds.append(cmd_template % (len(cmd), cmd))
             command = "*%s\r\n%s" % (len(cmds), "".join(cmds))
+            self.recent_commands.append(command)
 
             # When pipelining, buffer this command into our list of
             # pipelined commands. Otherwise, write the command immediately.
@@ -1428,7 +1430,8 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
 
     def _tx_started(self, response):
         if response != 'OK':
-            raise RedisError('Invalid response: %s' % response)
+            raise RedisError('Invalid response: %s recent_commands: %r' %
+                             (response, list(self.recent_commands)))
         return self
 
     def _commit_check(self, response):
