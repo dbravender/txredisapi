@@ -1457,6 +1457,11 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
     # http://redis.io/topics/pipelining
     def pipeline(self):
 
+        if self.pipelining:
+            err = "Already pipelining commands, " \
+                  "please use pipeline() only once"
+            raise RedisError(err)
+
         # Return a deferred that returns self (rather than simply self) to allow
         # ConnectionHandler to wrap this method with async connection retrieval.
         self.pipelining = True
@@ -1478,8 +1483,9 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         # to come back using a deferred list.
         self.transport.write("".join(self.pipelined_commands))
 
+        replies = self.pipelined_replies
         d = defer.DeferredList(
-            deferredList=self.pipelined_replies,
+            deferredList=replies,
             fireOnOneErrback=True,
             consumeErrors=True,
             )
@@ -1488,15 +1494,13 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
 
         self.pipelining = False
         self.pipelined_commands = []
+        self.pipelined_replies = []
         results = yield d
 
         defer.returnValue([value for success, value in results])
 
     def _clear_pipeline_state(self, response):
-
-        self.pipelined_replies = []
         self.factory.connectionQueue.put(self)
-
         return response
 
     # Publish/Subscribe
