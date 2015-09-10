@@ -1486,16 +1486,16 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
 
         d.addBoth(self._clear_pipeline_state)
 
+        self.pipelining = False
+        self.pipelined_commands = []
         results = yield d
 
         defer.returnValue([value for success, value in results])
 
     def _clear_pipeline_state(self, response):
-        if self.pipelining:
-            self.pipelining = False
-            self.pipelined_commands = []
-            self.pipelined_replies = []
-            self.factory.connectionQueue.put(self)
+
+        self.pipelined_replies = []
+        self.factory.connectionQueue.put(self)
 
         return response
 
