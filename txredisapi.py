@@ -242,7 +242,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         self.pipelining = False
         self.pipelined_commands = []
         self.pipelined_replies = []
-        self.recent_commands = collections.deque(maxlen=3)
+        self.recent_commands = collections.deque(maxlen=10)
 
     @defer.inlineCallbacks
     def connectionMade(self):
