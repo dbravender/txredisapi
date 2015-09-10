@@ -490,7 +490,13 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
                     cmd = str(s)
                 cmds.append(cmd_template % (len(cmd), cmd))
             command = "*%s\r\n%s" % (len(cmds), "".join(cmds))
-            self.recent_commands.append(command)
+            from operator import attrgetter
+            attrs = ['transactions', 'inTransaction', 'inMulti', 'unwatch_cc',
+                     'commit_cc', 'pipelining', 'pipelined_commands',
+                     'pipelined_replies']
+            of_interest = {k: v
+                           for k, v in zip(attrs, attrgetter(*attrs)(self))}
+            self.recent_commands.append((command, of_interest))
 
             # When pipelining, buffer this command into our list of
             # pipelined commands. Otherwise, write the command immediately.
