@@ -1501,7 +1501,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         successes, values = zip(results)
 
         if all(successes):
-            defer.returnValue(successes)
+            defer.returnValue(values)
         else:
             # TODO: attach (or log) the Failure objects?
             bad_commands = [c for s, c in zip(successes, commands) if not s]
