@@ -1483,10 +1483,11 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         # to come back using a deferred list.
         self.transport.write("".join(self.pipelined_commands))
 
+        commands = self.pipelined_commands
         replies = self.pipelined_replies
+
         d = defer.DeferredList(
             deferredList=replies,
-            fireOnOneErrback=True,
             consumeErrors=True,
             )
 
@@ -1495,9 +1496,18 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         self.pipelining = False
         self.pipelined_commands = []
         self.pipelined_replies = []
-        results = yield d
 
-        defer.returnValue([value for success, value in results])
+        results = yield d
+        successes, values = zip(results)
+
+        if all(successes):
+            defer.returnValue(successes)
+        else:
+            # TODO: attach (or log) the Failure objects?
+            bad_commands = [c for s, c in zip(successes, commands) if not s]
+            err = "Some of the pipelined commands failed: " \
+                  ", ".join(bad_commands)
+            raise RedisError(err)
 
     def _clear_pipeline_state(self, response):
         self.factory.connectionQueue.put(self)
