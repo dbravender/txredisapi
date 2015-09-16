@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from twisted.internet import threads
+from twisted.internet import reactor, threads
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
 
@@ -23,12 +23,12 @@ from tests.mixins import REDIS_HOST, REDIS_PORT
 
 import time
 import random
-import uuid
 
 
 class TestSimultaneousPipelineAndMulti(unittest.TestCase):
     @inlineCallbacks
     def test_pipeline_and_multi(self):
+        reactor.suggestThreadPoolSize(100)
         db = yield redis.ConnectionPool(
             REDIS_HOST, REDIS_PORT, poolsize=2, reconnect=False)
         for _ in range(1000):
@@ -40,14 +40,25 @@ class TestSimultaneousPipelineAndMulti(unittest.TestCase):
     def _run_pipeline(self, db):
         yield threads.deferToThread(
             lambda: time.sleep(random.uniform(0, 0.0001)))
-        pipeline = yield db.pipeline()
 
-        c_id = str(uuid.uuid4()).replace('-', '')
+        yield db.set('before', 555)
 
-        pipeline.sadd('fred', c_id)
-        pipeline.expire("fred:%s" % c_id, 60 * 60 * 24)
+        p = yield db.pipeline()
 
-        yield pipeline.execute_pipeline()
+        d = p.set("a", 1)
+        p.set("b", 2)
+        p.set("c", 3)
+
+        d.errback(1)
+        d._suppressAlreadyCalled = True
+
+        try:
+            yield p.execute_pipeline()
+        except:
+            pass
+
+        value = yield db.get('before')
+        self.assertEqual(value, 555)
 
     @inlineCallbacks
     def _run_transaction(self, db):
