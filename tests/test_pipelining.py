@@ -73,6 +73,20 @@ class TestRedisConnections(unittest.TestCase):
         sets_in_first_write = sum([1 for w in lines_in_first_write if "SET" in w])
         self.assertEqual(sets_in_first_write, 3)
 
+        yield db.set("steady", 555)
+
+        p = yield db.pipeline()
+        d = p.set("a", 1)
+        p.set("b", 2)
+        p.set("c", 3)
+
+        d.errback(1)
+        d._suppressAlreadyCalled = True
+        yield p.execute_pipeline()
+
+        value = yield db.get("steady")
+        self.assertEqual(value, 555)
+
     @defer.inlineCallbacks
     def _wait_for_lazy_connection(self, db):
 
