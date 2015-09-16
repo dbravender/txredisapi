@@ -1489,7 +1489,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         d = defer.DeferredList(
             deferredList=replies,
             consumeErrors=True,
-            )
+        )
 
         d.addBoth(self._clear_pipeline_state)
 
@@ -1498,7 +1498,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         self.pipelined_replies = []
 
         results = yield d
-        successes, values = zip(results)
+        successes, values = zip(*results)
 
         if all(successes):
             defer.returnValue(values)
