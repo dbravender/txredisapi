@@ -1503,7 +1503,11 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         if all(successes):
             defer.returnValue(values)
         else:
-            # TODO: attach (or log) the Failure objects?
+            connection_or_response_errors = filter(
+                lambda x: (hasattr(x, 'value') and
+                           isinstance(x.value, (ResponseError, ConnectionError))), values)
+            if connection_or_response_errors:
+                connection_or_response_errors[0].raiseException()
             bad_commands = [c for s, c in zip(successes, commands) if not s]
             err = "Some of the pipelined commands failed: " \
                   ", ".join(bad_commands)
